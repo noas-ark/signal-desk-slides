@@ -11,3 +11,12 @@ Prepared for *AI Tools for Venture Workflows*, Session 1.
 ## Interactive version
 
 [`index.html`](./index.html) is the source deck — open it in a browser for the scroll-snap slide navigation and the live "alert feed" demo on slide 10 (draft/approve/discard a simulated outreach message).
+
+## Keeping the PDF in sync
+
+`index.html` is the source of truth. A [GitHub Action](./.github/workflows/build-pdf.yml) rebuilds `Signal-Desk-Slides.pdf` automatically on every push to `main` that touches `index.html`, using [`scripts/build-pdf.py`](./scripts/build-pdf.py) + headless Chrome, then commits the regenerated PDF back to the repo. To rebuild it locally:
+
+```bash
+python3 scripts/build-pdf.py
+```
+
