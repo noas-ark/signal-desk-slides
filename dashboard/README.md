@@ -4,7 +4,7 @@ The real, running version of the [Signal Desk](../README.md) workflow: it scans 
 
 ## Sources (all free, no auth required)
 
-- GitHub Issues Search API
+- GitHub Issues Search API — scoped to a curated allowlist of real, well-known open-source AI coding tool repos (`anthropics/claude-code`, `cline/cline`, `continuedev/continue`, `All-Hands-AI/OpenHands`, `block/goose`, `Aider-AI/aider`). Cursor/Copilot/Windsurf are closed-source with no public issue tracker. Unscoped keyword search across all of GitHub was tried first and returned mostly noise — unrelated repos whose own internal code happened to match a search term — so it's intentionally restricted rather than filtered after the fact.
 - Hacker News (Algolia Search API)
 - Reddit public search JSON (best-effort — Reddit blocks a lot of unauthenticated traffic; failures here are expected and match the deck's "what didn't work" findings)
 - Stack Exchange API (Stack Overflow)
@@ -16,9 +16,16 @@ Evaluated but intentionally not wired live: **X/Twitter** (no free API access), 
 
 ## Architecture
 
-- `GET /api/scan` — fetches from all sources, clusters/scores with Claude (Prompt A from slide 06), drafts replies for the top items (Prompt B), posts a ranked digest to Slack (slide 04 step 03, optional), and persists the result to Vercel Blob. Triggered by Vercel Cron (see `vercel.json`) or manually from the dashboard's "Run scan now" button.
+- `GET /api/scan` — fetches from all sources, clusters/scores with Claude (Prompt A from slide 06), drafts replies for the top items (Prompt B), posts a ranked digest to Slack + Discord (slide 04 step 03, both optional), and persists the result to Vercel Blob. Triggered by Vercel Cron (see `vercel.json`) or manually from the dashboard's "Run scan now" button.
 - `GET /api/results` — reads the latest persisted scan result.
-- `/` — the dashboard UI: live problem-opportunity matrix + alert feed with drafted replies.
+- `POST /api/notify-discord` — re-sends the current (already-scanned) results to Discord without re-running the scan. Used by the dashboard's "Send to Discord" button.
+- `/` — the dashboard UI: live problem-opportunity matrix, "Explore a problem area" on-demand search, and alert feed with drafted replies.
+
+## Cluster quality
+
+Two safeguards keep clusters from being noise:
+1. **Minimum 3 items per cluster.** Prompt A is instructed not to report a single occurrence as a trend, and `clusterAndScore` filters out any cluster the model returns anyway with fewer than 3 items, as a backstop.
+2. **Named-product requirement.** Every item must explicitly name a widely-known AI product in its own text to be included — otherwise the model tended to launder internal bugs from unrelated repos (e.g. a project's own class names) into vague "AI agent" clusters. When in doubt, Prompt A is told to exclude rather than guess.
 
 ## Environment variables
 
