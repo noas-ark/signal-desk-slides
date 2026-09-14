@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Desk</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #FAF6EF;
+    --surface: #FFFFFF;
+    --surface-alt: #F2EAD8;
+    --ink: #20262B;
+    --ink-muted: #5E6A71;
+    --border: #E3D9C4;
+    --accent: #C1622B;
+    --accent-soft: #F0DDCB;
+    --opportunity: #3F7D5C;
+    --opportunity-soft: #DEEAE1;
+    --risk: #B14338;
+    --risk-soft: #F3DEDA;
+    --shadow: 0 1px 2px rgba(32,38,43,0.04), 0 8px 24px rgba(32,38,43,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181C;
+      --surface: #1B2126;
+      --surface-alt: #232B31;
+      --ink: #EFE9DC;
+      --ink-muted: #9CA6A8;
+      --border: #2C343A;
+      --accent: #E2884F;
+      --accent-soft: #3A2C22;
+      --opportunity: #63A883;
+      --opportunity-soft: #223229;
+      --risk: #DD7568;
+      --risk-soft: #3A2523;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 30px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181C;
+    --surface: #1B2126;
+    --surface-alt: #232B31;
+    --ink: #EFE9DC;
+    --ink-muted: #9CA6A8;
+    --border: #2C343A;
+    --accent: #E2884F;
+    --accent-soft: #3A2C22;
+    --opportunity: #63A883;
+    --opportunity-soft: #223229;
+    --risk: #DD7568;
+    --risk-soft: #3A2523;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 30px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-snap-type: y proximity; scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1.6;
+  }
+  h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; text-wrap: balance; margin: 0; }
+  code, .mono { font-family: 'IBM Plex Mono', 'SFMono-Regular', monospace; }
+
+  .slide {
+    scroll-snap-align: start;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: clamp(24px, 6vw, 64px) clamp(20px, 6vw, 96px);
+    border-bottom: 1px solid var(--border);
+  }
+  .slide-inner { max-width: 980px; margin: 0 auto; width: 100%; }
+  .eyebrow {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--accent); font-weight: 600; margin-bottom: 10px; display: block;
+  }
+  .slide h2.title { font-size: clamp(1.5rem, 3.4vw, 2.3rem); font-weight: 500; margin-bottom: 6px; }
+  .slide p.lede { color: var(--ink-muted); font-size: 1.02rem; max-width: 62ch; margin-top: 6px; }
+  .slide-num {
+    position: fixed; top: 20px; right: 24px; font-size: 0.72rem; color: var(--ink-muted);
+    font-family: 'IBM Plex Mono', monospace; z-index: 20; background: var(--bg); padding: 4px 8px;
+    border: 1px solid var(--border); border-radius: 20px; font-variant-numeric: tabular-nums;
+  }
+  .nav-btns { position: fixed; bottom: 22px; right: 24px; display: flex; gap: 8px; z-index: 20; }
+  .nav-btns button {
+    width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--surface); color: var(--ink); font-size: 1rem; cursor: pointer;
+    box-shadow: var(--shadow); display: flex; align-items: center; justify-content: center;
+  }
+  .nav-btns button:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btns button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---- Title slide ---- */
+  .title-slide { background: var(--surface); }
+  .title-slide h1 { font-size: clamp(2.4rem, 7vw, 4.2rem); font-weight: 500; letter-spacing: -0.01em; }
+  .title-slide .sub { color: var(--ink-muted); font-size: 1.05rem; margin-top: 18px; max-width: 56ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 36px; font-size: 0.85rem; color: var(--ink-muted); }
+  .meta-row strong { color: var(--ink); font-weight: 600; }
+
+  /* ---- generic components ---- */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+  ul.plain { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  ul.plain li { padding-left: 20px; position: relative; }
+  ul.plain li::before { content: "-"; position: absolute; left: 0; color: var(--accent); font-weight: 600; }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+  .chip.term { background: var(--surface-alt); color: var(--ink); font-family: 'IBM Plex Mono', monospace; font-weight: 400; }
+
+  .table-wrap { overflow-x: auto; margin-top: 18px; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 0.88rem; background: var(--surface); }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  thead th { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); background: var(--surface-alt); }
+  tbody tr:last-child td { border-bottom: none; }
+  .rank { font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
+  .rank.r1 { color: var(--opportunity); }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.76rem; font-weight: 600; }
+  .pill.high { background: var(--risk-soft); color: var(--risk); }
+  .pill.med { background: var(--accent-soft); color: var(--accent); }
+  .pill.top { background: var(--opportunity-soft); color: var(--opportunity); }
+
+  /* ---- pipeline diagram ---- */
+  .pipeline { display: flex; flex-wrap: wrap; gap: 0; align-items: stretch; margin-top: 28px; }
+  .pipe-step {
+    flex: 1 1 150px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 14px; position: relative; box-shadow: var(--shadow); min-width: 140px;
+  }
+  .pipe-step .n { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--accent); font-weight: 600; }
+  .pipe-step h3 { font-size: 0.95rem; font-weight: 600; font-family: 'Inter', sans-serif; margin-top: 6px; }
+  .pipe-step p { font-size: 0.8rem; color: var(--ink-muted); margin-top: 6px; }
+  .pipe-arrow { display: flex; align-items: center; justify-content: center; padding: 0 6px; color: var(--ink-muted); font-size: 1.1rem; flex: 0 0 auto; }
+  .pipe-step.gate { border: 1.5px dashed var(--risk); }
+  .pipe-step.gate .n { color: var(--risk); }
+  @media (max-width: 860px) {
+    .pipeline { flex-direction: column; }
+    .pipe-arrow { transform: rotate(90deg); padding: 4px 0; }
+  }
+
+  /* ---- prompt blocks ---- */
+  .prompt-block { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-top: 14px; }
+  .prompt-block .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); font-weight: 600; margin-bottom: 10px; display: block; }
+  .prompt-block pre { margin: 0; white-space: pre-wrap; font-size: 0.82rem; line-height: 1.65; font-family: 'IBM Plex Mono', monospace; }
+
+  .draft-msg { background: var(--surface); border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; padding: 14px 18px; font-size: 0.9rem; }
+  .draft-msg .from { font-size: 0.72rem; color: var(--ink-muted); margin-top: 10px; font-family: 'IBM Plex Mono', monospace; }
+  .complaint-src { font-size: 0.78rem; color: var(--ink-muted); margin-bottom: 8px; }
+
+  /* ---- astroturf slide ---- */
+  .rule-row { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .rule-row:last-child { border-bottom: none; }
+  .rule-row .mark { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: var(--opportunity); flex: 0 0 20px; margin-top: 2px; }
+
+  /* ---- demo slide ---- */
+  .alert-feed { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
+  .alert-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; box-shadow: var(--shadow); }
+  .alert-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .alert-src { font-family: 'IBM Plex Mono', monospace; font-size: 0.74rem; color: var(--ink-muted); }
+  .alert-text { margin-top: 8px; font-size: 0.92rem; }
+  .alert-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--border); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 13px; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn.primary:hover { opacity: 0.88; color: var(--bg); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .draft-panel { margin-top: 14px; border-top: 1px dashed var(--border); padding-top: 14px; }
+  .draft-panel[hidden] { display: none; }
+  .status-badge { font-size: 0.74rem; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+  .status-badge.pending { background: var(--surface-alt); color: var(--ink-muted); }
+  .status-badge.approved { background: var(--opportunity-soft); color: var(--opportunity); }
+  .status-badge.discarded { background: var(--risk-soft); color: var(--risk); }
+
+  footer.slide { min-height: auto; padding-top: 40px; padding-bottom: 60px; }
+  .src-list { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; font-size: 0.82rem; }
+  .src-list a { color: var(--ink-muted); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .slide-inner { animation: rise 0.5s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  }
+</style>
+</head>
+<body>
+
+<div class="slide-num"><span id="curNum">1</span> / <span id="totalNum">12</span></div>
+<div class="nav-btns">
+  <button id="prevBtn" aria-label="Previous slide">&#8593;</button>
+  <button id="nextBtn" aria-label="Next slide">&#8595;</button>
+</div>
+
+<section class="slide title-slide" id="s0">
+  <div class="slide-inner">
+    <span class="eyebrow">Workflow 1 &middot; Problem Sensing (and Response)</span>
+    <h1>Signal Desk</h1>
+    <p class="sub">A working problem-sensing and response pipeline: scan recurring AI-tooling complaints, rank them into an opportunity matrix, then draft (never auto-send) outreach to the people describing the pain.</p>
+    <div class="meta-row">
+      <span><strong>Team</strong> &middot; add teammate names here</span>
+      <span><strong>Course</strong> &middot; AI Tools for Venture Workflows, Session 1</span>
+      <span><strong>Prepared by</strong> Div</span>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s1">
+  <div class="slide-inner">
+    <span class="eyebrow">01 &middot; Method</span>
+    <h2 class="title">How we picked terms and platforms</h2>
+    <p class="lede">We did not start with a venture idea. We let the scan surface one, so the picking process itself needed to be disciplined.</p>
+    <div class="grid-2" style="margin-top: 26px;">
+      <div class="card">
+        <h3 style="font-size:1rem; font-weight:600;">Search lexicon</h3>
+        <p style="color:var(--ink-muted); font-size:0.88rem; margin-top:6px;">Broad emotion terms alone returned marketing copy, not complaints. We layered three word classes together.</p>
+        <div style="margin-top:14px; display:flex; flex-wrap:wrap; gap:6px;">
+          <span class="chip term">product names</span>
+          <span class="chip term">Cursor</span>
+          <span class="chip term">Claude Code</span>
+          <span class="chip term">Copilot</span>
+          <span class="chip term">Operator</span>
+          <span class="chip term">Comet</span>
+          <span class="chip term">+ symptom words</span>
+          <span class="chip term">loses context</span>
+          <span class="chip term">hallucinate</span>
+          <span class="chip term">repeats itself</span>
+          <span class="chip term">+ venue filter</span>
+          <span class="chip term">site:reddit.com</span>
+          <span class="chip term">site:news.ycombinator.com</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:1rem; font-weight:600;">Platforms scanned</h3>
+        <ul class="plain" style="font-size:0.88rem;">
+          <li>Reddit (search index + direct fetch attempts)</li>
+          <li>Hacker News (search index + item pages)</li>
+          <li>GitHub Issues on public agent repos</li>
+          <li>G2 and review aggregators</li>
+          <li>Dev.to and technical Substacks</li>
+          <li>X / Twitter &middot; attempted, no free access (see slide 09)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s2">
+  <div class="slide-inner">
+    <span class="eyebrow">02 &middot; Findings</span>
+    <h2 class="title">Problem-opportunity matrix</h2>
+    <p class="lede">Ranked by a combination of how often the complaint recurs, how much damage it does, and whether we could actually find and message a concentrated group of people describing it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Rank</th><th>Problem cluster</th><th>Frequency</th><th>Severity</th><th>Concentrated in</th><th>Opportunity read</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="rank r1">01</td>
+            <td><strong>Coding agents lose context / repeat finished work</strong> in long sessions</td>
+            <td><span class="pill top">High</span></td>
+            <td><span class="pill high">High</span></td>
+            <td>GitHub issues, r/ClaudeAI, r/cursor, HN, dev.to</td>
+            <td>Sharp, technical, and people are already hand-building workarounds. Chosen for the live workflow.</td>
+          </tr>
+          <tr>
+            <td class="rank">02</td>
+            <td>"AI agents don't survive production," enterprise reliability skepticism</td>
+            <td><span class="pill top">High</span></td>
+            <td><span class="pill med">Medium</span></td>
+            <td>HN essays, thought-leadership blogs</td>
+            <td>Loud but diffuse. Hard to turn an essay reader into a discovery call.</td>
+          </tr>
+          <tr>
+            <td class="rank">03</td>
+            <td>AI support agents can't escalate or retain ticket context</td>
+            <td><span class="pill top">High</span></td>
+            <td><span class="pill high">High</span></td>
+            <td>G2 reviews, vendor comparison sites</td>
+            <td>Real pain, but an enterprise sales motion already crowded with incumbents</td>
+          </tr>
+          <tr>
+            <td class="rank">04</td>
+            <td>AI browser / computer-use agents too slow for daily use</td>
+            <td><span class="pill med">Medium</span></td>
+            <td><span class="pill med">Medium</span></td>
+            <td>Newsletter and Medium first-person reviews</td>
+            <td>Pre-chasm category, no clear repeatable wedge yet</td>
+          </tr>
+          <tr>
+            <td class="rank">05</td>
+            <td>AI notetakers raise privacy and legal exposure</td>
+            <td><span class="pill med">Medium</span></td>
+            <td><span class="pill med">Medium</span></td>
+            <td>Legal and HR trade press</td>
+            <td>Policy-adjacent, slower enterprise sales cycle</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s3">
+  <div class="slide-inner">
+    <span class="eyebrow">03 &middot; Chosen opportunity</span>
+    <h2 class="title">Context loss in long agentic coding sessions</h2>
+    <p class="lede">The people describing this are specific, findable, and already paying for the tools that are frustrating them, which makes them reachable for customer discovery, not just a survey population.</p>
+    <div class="grid-2" style="margin-top:22px;">
+      <div class="card">
+        <h3 style="font-size:1rem; font-weight:600;">What we actually found</h3>
+        <ul class="plain" style="font-size:0.88rem;">
+          <li><span class="mono" style="font-size:0.82rem;">anthropics/claude-code #92951</span>, "Agent loses context and makes repeated mistakes during extended sessions"</li>
+          <li>Dev.to: "Why Your Claude Code Sessions Keep Losing Context (And How to Fix It)"</li>
+          <li>Dev.to: "Why Does Claude Code Lose Track Mid-Task?"</li>
+          <li>Substack: a user reverse-engineering why <span class="mono" style="font-size:0.82rem;">/compact</span> discards useful context</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="font-size:1rem; font-weight:600;">Who is most concentrated here</h3>
+        <p style="font-size:0.88rem; color:var(--ink-muted); margin-top:6px;">Developers running multi-day or multi-hundred-tool-call agent sessions on Claude Code, Cursor, Windsurf, and Copilot, most visible in GitHub issue threads on those repos and in r/ClaudeAI and r/cursor.</p>
+        <p style="font-size:0.88rem; color:var(--ink-muted); margin-top:10px;">The tell that this is a real wedge, not just noise: people are already hand-rolling fixes (checkpoint files, manual spec re-statements) instead of waiting for the vendor.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s4">
+  <div class="slide-inner">
+    <span class="eyebrow">04 &middot; Workflow</span>
+    <h2 class="title">Scan, cluster, alert, draft, then a human decides</h2>
+    <p class="lede">Everything up to the send button is automatable. The send button is not.</p>
+    <div class="pipeline">
+      <div class="pipe-step"><span class="n">01</span><h3>Scan sources</h3><p>GitHub Issues API, F5Bot keyword alerts, dev.to / Substack RSS</p></div>
+      <div class="pipe-arrow">&#8594;</div>
+      <div class="pipe-step"><span class="n">02</span><h3>Cluster & score</h3><p>Claude groups raw items into problem clusters, scores frequency and severity</p></div>
+      <div class="pipe-arrow">&#8594;</div>
+      <div class="pipe-step"><span class="n">03</span><h3>Notify team</h3><p>Ranked digest posted to Slack, tagged by cluster and score</p></div>
+      <div class="pipe-arrow">&#8594;</div>
+      <div class="pipe-step"><span class="n">04</span><h3>Draft reply</h3><p>Claude writes one candidate response grounded in the exact complaint text</p></div>
+      <div class="pipe-arrow">&#8594;</div>
+      <div class="pipe-step gate"><span class="n">GATE</span><h3>Human review</h3><p>Founder edits or kills the draft. Nothing posts without a person approving it</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s5">
+  <div class="slide-inner">
+    <span class="eyebrow">05 &middot; Tool selection</span>
+    <h2 class="title">What we picked at each stage, and why</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Stage</th><th>Tool</th><th>Why this one</th><th>Cost</th></tr></thead>
+        <tbody>
+          <tr><td>Scan (technical)</td><td class="mono">GitHub Issues API</td><td>Direct source of acute, reproducible complaints with technical detail attached</td><td>Free</td></tr>
+          <tr><td>Scan (social, tripwire)</td><td class="mono">F5Bot</td><td>Simplest free keyword alert across Reddit and HN, good enough as an early warning</td><td>Free</td></tr>
+          <tr><td>Scan (upgrade path)</td><td class="mono">Syften</td><td>Broader coverage across Reddit, HN, Discord, Slack, and X once free tripwires prove the terms are right</td><td>Paid</td></tr>
+          <tr><td>Cluster & score</td><td class="mono">Claude</td><td>Reads noisy, inconsistent text and groups it by root cause faster than a human triage pass</td><td>Free tier</td></tr>
+          <tr><td>Notify</td><td class="mono">Slack webhook</td><td>Lands where the team already works, no new habit to build</td><td>Free</td></tr>
+          <tr><td>Draft reply</td><td class="mono">Claude</td><td>First-pass reply grounded in the actual complaint, cheap enough to regenerate per item</td><td>Free tier</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s6">
+  <div class="slide-inner">
+    <span class="eyebrow">06 &middot; Prompt design</span>
+    <h2 class="title">The two prompts doing the real work</h2>
+    <div class="prompt-block">
+      <span class="label">Prompt A: cluster and score</span>
+      <pre>You are a research analyst screening startup problem signal.
+For each raw item I give you (from GitHub issues, forums, or reviews):
+
+1. Assign it to a problem cluster. Name the cluster as a specific
+   failure in a job-to-be-done, not a vague category.
+2. Score FREQUENCY 1-5, how often this same complaint recurs.
+3. Score SEVERITY 1-5, how much workflow, financial, or trust
+   damage the complaint describes.
+4. Note WHERE CONCENTRATED, platform, subreddit, or repo.
+5. Flag it if the poster describes a workaround they built
+   themselves. That is a stronger signal than the complaint alone.
+
+Return one row per cluster, aggregating duplicates, as a table.
+
+Raw items: [paste scraped items]</pre>
+    </div>
+    <div class="prompt-block">
+      <span class="label">Prompt B: draft a reply (astroturf guardrails built in)</span>
+      <pre>Draft a reply from [founder name], building tooling for [cluster].
+Here is the exact complaint and source link: [paste complaint + link]
+
+Rules:
+- Under 80 words. Sign with the founder's real name.
+- Reference the specific detail they described, not a summary.
+- Offer something useful first (a workaround, a direct answer)
+  before making any ask.
+- If asking for time, frame it as customer discovery, never as a
+  pitch or a beta invite.
+- Do not claim experience we do not have.
+- If the exchange goes past one reply, disclose we are building
+  something in this space.
+- No marketing language.</pre>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s7">
+  <div class="slide-inner">
+    <span class="eyebrow">07 &middot; Sample output</span>
+    <h2 class="title">Two drafts the workflow produced</h2>
+    <p class="lede">Both are illustrative composites built from the real patterns in slide 03, not messages we sent, and not tied to one identifiable poster.</p>
+    <div class="grid-2" style="margin-top:22px;">
+      <div class="card">
+        <div class="complaint-src">Pattern seen in a GitHub issue thread &middot; agent lost context around 40 tool calls, redid finished work</div>
+        <div class="draft-msg">
+          Hit this too, right around the same tool-call count. Feels more like a compaction problem than a model one. One thing that helped me was forcing a written checkpoint file every N steps instead of trusting the summary. If you're open to it, I'd love 15 minutes to hear what your session looked like right before it broke. Not selling anything, just trying to map where this fails.
+          <div class="from">Div.</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="complaint-src">Pattern seen in a dev.to comment thread &middot; re-explained the same architecture decision three times in one session</div>
+        <div class="draft-msg">
+          Three times in one session is rough. Was that right after a compact, or just long natural drift? A few of us are mapping this exact pattern, agents forgetting decisions that were already settled. Would fifteen minutes of your actual experience be useful to trade for whatever we learn along the way? No pitch attached.
+          <div class="from">Div.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s8">
+  <div class="slide-inner">
+    <span class="eyebrow">08 &middot; The trade-off</span>
+    <h2 class="title">Fast and easy versus astroturfing</h2>
+    <p class="lede">The same automation that makes outreach cheap for a founder is what makes it read as manufactured if we are not careful. Here is where we drew the line.</p>
+    <div class="card" style="margin-top:20px;">
+      <div class="rule-row"><span class="mark">01</span><span>Every reply discloses a real name and, past one exchange, that we are building something in this space. No sock accounts, no "just a fellow user" framing.</span></div>
+      <div class="rule-row"><span class="mark">02</span><span>The draft always offers something before it asks for anything, a workaround, a direct answer, a resource, never an ask-first message.</span></div>
+      <div class="rule-row"><span class="mark">03</span><span>Automation stops at the draft. A person reads, edits, and approves every message before it posts or sends. Nothing goes out unattended.</span></div>
+      <div class="rule-row"><span class="mark">04</span><span>Volume is capped intentionally. A founder who replies to forty threads a day in identical cadence reads as a bot even when a human wrote every word.</span></div>
+      <div class="rule-row"><span class="mark">05</span><span>Every sent message is logged, so the team can check for repetition or drift toward generic, scripted-sounding language over time.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s9">
+  <div class="slide-inner">
+    <span class="eyebrow">09 &middot; What did not work</span>
+    <h2 class="title">Real limitations we hit building this</h2>
+    <div class="grid-2" style="margin-top:20px;">
+      <div class="card">
+        <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">Direct scraping got blocked</h3>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">Fetching Reddit's own search pages directly was blocked outright. Hacker News item pages rate-limited us on a second request. Confirms the assignment's own tool list: you need F5Bot, Syften, or an official API, not ad hoc fetching.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">Broad queries returned marketing, not complaints</h3>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">"AI agent frustrating" mostly surfaced explainer blogs and thought-leadership about agents. Real complaint density only showed up once we narrowed to a specific product name plus a specific symptom word plus a specific venue like GitHub issues or dev.to.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">X was a dead end on the free tier</h3>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">No free path to X search turned up real posts. The sample tool list treats X API/MCP as a given, but it is a real gap unless someone on the team already has paid access.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">Aggregator sites validate a pattern, not a lead</h3>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">G2 and review-aggregator content confirmed the support-agent cluster is real at category scale, but gave us nothing individually addressable to actually message. Good for sizing a problem, useless for sourcing outreach targets.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s10">
+  <div class="slide-inner">
+    <span class="eyebrow">10 &middot; Live demo</span>
+    <h2 class="title">The alert feed, as the founder would see it</h2>
+    <p class="lede">Three simulated alerts. Click "Draft reply" to see Prompt B's output, then approve or discard it, the way a human review step actually works.</p>
+    <div class="alert-feed" id="alertFeed"></div>
+  </div>
+</section>
+
+<section class="slide" id="s11">
+  <div class="slide-inner">
+    <span class="eyebrow">11 &middot; Next steps</span>
+    <h2 class="title">What we would build next</h2>
+    <ul class="plain">
+      <li>Wire the GitHub Issues API and an F5Bot digest into an actual Slack channel instead of a mocked feed</li>
+      <li>Tighten Prompt B against panel feedback in class, specifically on the disclosure timing rule</li>
+      <li>Run 10 real drafted replies past a non-founder teammate as an astroturfing smell test before sending any</li>
+      <li>Decide, after real discovery conversations, whether this cluster is a venture or just a good feature for someone else's product</li>
+    </ul>
+    <div class="src-list" style="margin-top:34px;">
+      <span class="eyebrow" style="margin-bottom:2px;">Sources</span>
+      <a href="https://github.com/anthropics/claude-code/issues/92951" target="_blank" rel="noopener">GitHub &middot; anthropics/claude-code issue #92951</a>
+      <a href="https://www.twig.so/blog/most-common-complaints-ai-customer-support-tools" target="_blank" rel="noopener">Twig &middot; Most Common Complaints About AI Customer Support Tools</a>
+      <a href="https://learn.g2.com/ai-agents-for-customer-support" target="_blank" rel="noopener">G2 &middot; AI Agents for Customer Support, 7,900+ reviews</a>
+      <a href="https://natesnewsletter.substack.com/p/i-threw-my-real-workday-at-two-ai" target="_blank" rel="noopener">Nate's Newsletter &middot; I threw my real workday at two AI agents</a>
+      <a href="https://news.ycombinator.com/item?id=45718390" target="_blank" rel="noopener">Hacker News &middot; Most "AI agents" don't survive production</a>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var curNum = document.getElementById('curNum');
+  var totalNum = document.getElementById('totalNum');
+  totalNum.textContent = slides.length;
+
+  function currentIndex() {
+    var mid = window.scrollY + window.innerHeight / 2;
+    for (var i = 0; i < slides.length; i++) {
+      var r = slides[i];
+      if (r.offsetTop <= mid && r.offsetTop + r.offsetHeight > mid) return i;
+    }
+    return 0;
+  }
+  function updateNum() { curNum.textContent = currentIndex() + 1; }
+  window.addEventListener('scroll', updateNum, { passive: true });
+  updateNum();
+
+  function goTo(i) {
+    i = Math.max(0, Math.min(slides.length - 1, i));
+    slides[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.getElementById('nextBtn').addEventListener('click', function () { goTo(currentIndex() + 1); });
+  document.getElementById('prevBtn').addEventListener('click', function () { goTo(currentIndex() - 1); });
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'PageDown') { goTo(currentIndex() + 1); e.preventDefault(); }
+    if (e.key === 'ArrowUp' || e.key === 'PageUp') { goTo(currentIndex() - 1); e.preventDefault(); }
+  });
+
+  // ---- demo alert feed ----
+  var alerts = [
+    {
+      src: 'GitHub Issues · agent repo · severity 5/5',
+      text: '"Agent completely lost context after roughly 40 tool calls and started redoing work it had already finished. Wasted almost an hour of runtime before I noticed."',
+      draft: 'Hit this too, right around the same tool-call count. Feels more like a compaction problem than a model one. One thing that helped me was forcing a written checkpoint file every N steps instead of trusting the summary. If you’re open to it, I’d love 15 minutes to hear what your session looked like right before it broke. Not selling anything, just trying to map where this fails.\n\nDiv.'
+    },
+    {
+      src: 'r/ClaudeAI · keyword alert · severity 4/5',
+      text: '"Spent my whole morning re-explaining the same architecture decision three times in one session. At what point do I just write it all in a doc and paste it every time?"',
+      draft: 'Three times in one session is rough. Was that right after a compact, or just long natural drift? A few of us are mapping this exact pattern, agents forgetting decisions that were already settled. Would fifteen minutes of your actual experience be useful to trade for whatever we learn along the way? No pitch attached.\n\nDiv.'
+    },
+    {
+      src: 'dev.to comment · keyword alert · severity 3/5',
+      text: '"Built myself a scrappy checkpoint file that I paste back in every 20 minutes. Works, but it is one more thing to remember to do."',
+      draft: 'That checkpoint habit is basically the workaround we keep seeing, which is what got us paying attention to this. Curious how you decided on 20 minutes specifically, trial and error or did something actually break at that mark? If you’re up for a quick call I’d rather hear it straight from you than guess.\n\nDiv.'
+    }
+  ];
+
+  var feed = document.getElementById('alertFeed');
+  alerts.forEach(function (a, idx) {
+    var card = document.createElement('div');
+    card.className = 'alert-card';
+    card.innerHTML =
+      '<div class="alert-top">' +
+        '<span class="alert-src">' + a.src + '</span>' +
+        '<span class="status-badge pending" data-status>Awaiting draft</span>' +
+      '</div>' +
+      '<div class="alert-text">' + a.text + '</div>' +
+      '<div class="alert-actions">' +
+        '<button class="btn" data-draft type="button">Draft reply</button>' +
+      '</div>' +
+      '<div class="draft-panel" data-panel hidden>' +
+        '<span class="label" style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-muted); font-weight:600;">Prompt B output</span>' +
+        '<div class="draft-msg" style="margin-top:8px; white-space:pre-line;">' + a.draft + '</div>' +
+        '<div class="alert-actions">' +
+          '<button class="btn primary" data-approve type="button">Approve to send</button>' +
+          '<button class="btn" data-discard type="button">Discard</button>' +
+        '</div>' +
+      '</div>';
+    feed.appendChild(card);
+
+    var status = card.querySelector('[data-status]');
+    var panel = card.querySelector('[data-panel]');
+    card.querySelector('[data-draft]').addEventListener('click', function (e) {
+      panel.hidden = !panel.hidden;
+      e.target.textContent = panel.hidden ? 'Draft reply' : 'Hide draft';
+    });
+    card.querySelector('[data-approve]').addEventListener('click', function () {
+      status.textContent = 'Approved by founder, ready to send';
+      status.className = 'status-badge approved';
+    });
+    card.querySelector('[data-discard]').addEventListener('click', function () {
+      status.textContent = 'Discarded';
+      status.className = 'status-badge discarded';
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
