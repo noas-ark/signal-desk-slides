@@ -86,22 +86,6 @@ def build_pdf_source(html: str) -> str:
         sys.exit("Could not find '</style>\\n</head>' anchor in index.html")
     html = html.replace("</style>\n</head>", PRINT_CSS + "</style>\n</head>", 1)
 
-    draft_button_old = (
-        "'<div class=\"alert-actions\">' +\n"
-        "        '<button class=\"btn\" data-draft type=\"button\">Draft reply</button>' +\n"
-        "      '</div>' +\n"
-        "      '<div class=\"draft-panel\" data-panel hidden>' +"
-    )
-    draft_button_new = (
-        "'<div class=\"alert-actions\">' +\n"
-        "        '<button class=\"btn\" data-draft type=\"button\">Hide draft</button>' +\n"
-        "      '</div>' +\n"
-        "      '<div class=\"draft-panel\" data-panel>' +"
-    )
-    if draft_button_old not in html:
-        sys.exit("Could not find alert-feed draft-panel markup to expand for PDF")
-    html = html.replace(draft_button_old, draft_button_new, 1)
-
     if "})();\n</script>" not in html:
         sys.exit("Could not find '})();\\n</script>' anchor in index.html")
     html = html.replace("})();\n</script>", FIT_JS + "})();\n</script>", 1)

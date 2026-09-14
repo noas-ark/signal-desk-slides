@@ -350,16 +350,17 @@
   <div class="slide-inner">
     <span class="eyebrow">05 &middot; Tool selection</span>
     <h2 class="title">What we picked at each stage, and why</h2>
+    <p class="lede">Updated from what we planned to what is actually deployed and running at <a href="https://signal-desk-dashboard.vercel.app" target="_blank" rel="noopener">signal-desk-dashboard.vercel.app</a>.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Stage</th><th>Tool</th><th>Why this one</th><th>Cost</th></tr></thead>
         <tbody>
-          <tr><td>Scan (technical)</td><td class="mono">GitHub Issues API</td><td>Direct source of acute, reproducible complaints with technical detail attached</td><td>Free</td></tr>
-          <tr><td>Scan (social, tripwire)</td><td class="mono">F5Bot</td><td>Simplest free keyword alert across Reddit and HN, good enough as an early warning</td><td>Free</td></tr>
-          <tr><td>Scan (upgrade path)</td><td class="mono">Syften</td><td>Broader coverage across Reddit, HN, Discord, Slack, and X once free tripwires prove the terms are right</td><td>Paid</td></tr>
-          <tr><td>Cluster & score</td><td class="mono">Claude</td><td>Reads noisy, inconsistent text and groups it by root cause faster than a human triage pass</td><td>Free tier</td></tr>
-          <tr><td>Notify</td><td class="mono">Slack webhook</td><td>Lands where the team already works, no new habit to build</td><td>Free</td></tr>
-          <tr><td>Draft reply</td><td class="mono">Claude</td><td>First-pass reply grounded in the actual complaint, cheap enough to regenerate per item</td><td>Free tier</td></tr>
+          <tr><td>Scan (technical)</td><td class="mono">GitHub Issues, Stack Exchange APIs</td><td>Direct, official APIs, no scraping, no ToS risk</td><td>Free</td></tr>
+          <tr><td>Scan (social)</td><td class="mono">HN Algolia, Reddit JSON</td><td>Official/public search endpoints; Reddit is best-effort, see slide 09</td><td>Free</td></tr>
+          <tr><td>Scan (community)</td><td class="mono">Substack RSS, Discourse <span class="mono">/search.json</span></td><td>Every Substack exposes an RSS feed; Discourse forums (Cursor's, OpenAI's) expose a free public search API &mdash; no scraping needed</td><td>Free</td></tr>
+          <tr><td>Cluster & score, Draft reply</td><td class="mono">Claude, via OpenRouter</td><td>One API key routes to Claude; swappable model slug without touching code</td><td>Pay-as-you-go, cents per scan</td></tr>
+          <tr><td>Notify</td><td class="mono">Slack + Discord webhooks</td><td>Both wired, either optional &mdash; Discord needed zero prerequisite setup</td><td>Free</td></tr>
+          <tr><td>Schedule, storage, hosting</td><td class="mono">Vercel Cron, Vercel Blob, Vercel</td><td>Serverless function on a timer, JSON results persisted between runs, auto-deployed from GitHub</td><td>Free tier</td></tr>
         </tbody>
       </table>
     </div>
@@ -371,22 +372,28 @@
     <span class="eyebrow">06 &middot; Prompt design</span>
     <h2 class="title">The two prompts doing the real work</h2>
     <div class="prompt-block">
-      <span class="label">Prompt A: cluster and score</span>
+      <span class="label">Prompt A: cluster and score &mdash; live version, returns JSON</span>
       <pre>You are a research analyst screening startup problem signal.
 For each raw item I give you (from GitHub issues, forums, or reviews):
 
 1. Assign it to a problem cluster. Name the cluster as a specific
    failure in a job-to-be-done, not a vague category.
-2. Score FREQUENCY 1-5, how often this same complaint recurs.
-3. Score SEVERITY 1-5, how much workflow, financial, or trust
+2. Write a robust 2-3 sentence DESCRIPTION of the problem: what
+   actually breaks, the likely root cause if inferable, and who
+   is affected. Be concrete, cite the mechanism, not the title.
+3. Score FREQUENCY 1-5, how often this same complaint recurs.
+4. Score SEVERITY 1-5, how much workflow, financial, or trust
    damage the complaint describes.
-4. Note WHERE CONCENTRATED, platform, subreddit, or repo.
-5. Flag it if the poster describes a workaround they built
+5. Note WHERE CONCENTRATED, platform, subreddit, or repo.
+6. Flag it if the poster describes a workaround they built
    themselves. That is a stronger signal than the complaint alone.
 
-Return one row per cluster, aggregating duplicates, as a table.
+Respond with ONLY a JSON array, no prose, matching this shape:
+[{ "cluster", "description", "frequency", "severity",
+   "concentratedIn", "hasWorkaround", "itemIndexes" }]
 
-Raw items: [paste scraped items]</pre>
+Raw items (indexed): [live-fetched items from GitHub, HN, Reddit,
+Stack Overflow, dev.to, Substack, Discourse]</pre>
     </div>
     <div class="prompt-block">
       <span class="label">Prompt B: draft a reply (astroturf guardrails built in)</span>
@@ -411,24 +418,9 @@ Rules:
 <section class="slide" id="s7">
   <div class="slide-inner">
     <span class="eyebrow">07 &middot; Sample output</span>
-    <h2 class="title">Two drafts the workflow produced</h2>
-    <p class="lede">Both are illustrative composites built from the real patterns in slide 03, not messages we sent, and not tied to one identifiable poster.</p>
-    <div class="grid-2" style="margin-top:22px;">
-      <div class="card">
-        <div class="complaint-src">Pattern seen in a GitHub issue thread &middot; agent lost context around 40 tool calls, redid finished work</div>
-        <div class="draft-msg">
-          Hit this too, right around the same tool-call count. Feels more like a compaction problem than a model one. One thing that helped me was forcing a written checkpoint file every N steps instead of trusting the summary. If you're open to it, I'd love 15 minutes to hear what your session looked like right before it broke. Not selling anything, just trying to map where this fails.
-          <div class="from">Div.</div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="complaint-src">Pattern seen in a dev.to comment thread &middot; re-explained the same architecture decision three times in one session</div>
-        <div class="draft-msg">
-          Three times in one session is rough. Was that right after a compact, or just long natural drift? A few of us are mapping this exact pattern, agents forgetting decisions that were already settled. Would fifteen minutes of your actual experience be useful to trade for whatever we learn along the way? No pitch attached.
-          <div class="from">Div.</div>
-        </div>
-      </div>
-    </div>
+    <h2 class="title">Real drafts, pulled live from the running dashboard</h2>
+    <p class="lede">No longer illustrative composites &mdash; this is an actual screenshot of <a href="https://signal-desk-dashboard.vercel.app" target="_blank" rel="noopener">signal-desk-dashboard.vercel.app</a> after a real scan: real complaints from GitHub, HN, and dev.to, with real Claude-drafted replies sitting in "awaiting review." Nothing here was sent.</p>
+    <img src="screenshots/dashboard-alert-feed.jpg" alt="Screenshot of the live Signal Desk dashboard's alert feed, showing real complaints and real Claude-drafted replies awaiting human approval" style="width:100%; max-height:420px; object-fit:cover; object-position:top; border-radius:14px; border:1px solid var(--border); box-shadow:var(--shadow); margin-top:18px;">
   </div>
 </section>
 
@@ -451,22 +443,31 @@ Rules:
   <div class="slide-inner">
     <span class="eyebrow">09 &middot; What did not work</span>
     <h2 class="title">Real limitations we hit building this</h2>
-    <div class="grid-2" style="margin-top:20px;">
+    <p class="lede" style="margin-top:0;">Four from the research phase, two more from actually shipping the pipeline to production.</p>
+    <div class="grid-2" style="margin-top:16px;">
       <div class="card">
         <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">Direct scraping got blocked</h3>
-        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">Fetching Reddit's own search pages directly was blocked outright. Hacker News item pages rate-limited us on a second request. Confirms the assignment's own tool list: you need F5Bot, Syften, or an official API, not ad hoc fetching.</p>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">Reddit's own search pages blocked us outright, and still return 403 in the deployed pipeline today. Hacker News item pages rate-limited a second request. Confirms you need an official API, not ad hoc fetching.</p>
       </div>
       <div class="card">
         <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">Broad queries returned marketing, not complaints</h3>
-        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">"AI agent frustrating" mostly surfaced explainer blogs and thought-leadership about agents. Real complaint density only showed up once we narrowed to a specific product name plus a specific symptom word plus a specific venue like GitHub issues or dev.to.</p>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">"AI agent frustrating" mostly surfaced explainer blogs and thought-leadership. Real complaint density only showed up once we narrowed to a specific product name plus a specific symptom word plus a specific venue.</p>
       </div>
       <div class="card">
         <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">X was a dead end on the free tier</h3>
-        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">No free path to X search turned up real posts. The sample tool list treats X API/MCP as a given, but it is a real gap unless someone on the team already has paid access.</p>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">No free path to X search turned up real posts. The sample tool list treats X API/MCP as a given, but it is a real gap unless someone already has paid access.</p>
       </div>
       <div class="card">
         <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">Aggregator sites validate a pattern, not a lead</h3>
-        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">G2 and review-aggregator content confirmed the support-agent cluster is real at category scale, but gave us nothing individually addressable to actually message. Good for sizing a problem, useless for sourcing outreach targets.</p>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">G2 confirmed the support-agent cluster is real at category scale, but gave us nothing individually addressable to message. Good for sizing a problem, useless for sourcing targets.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">The model we picked got silently deprecated</h3>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">The exact OpenRouter model slug we launched with (<code class="mono" style="font-size:0.8rem;">claude-3.5-sonnet</code>) stopped resolving mid-build with a bare 404. Model catalogs move under you; a live pipeline needs a fallback, not a hardcoded slug.</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:0.95rem; font-weight:600; color:var(--risk);">Seven sources, one time limit</h3>
+        <p style="font-size:0.87rem; color:var(--ink-muted); margin-top:6px;">Fetching all sources sequentially blew past Vercel's 60s function limit and hit a 504. Fix was parallelizing every per-query request with <code class="mono" style="font-size:0.8rem;">Promise.allSettled</code> &mdash; obvious in hindsight, invisible until real load hit it.</p>
       </div>
     </div>
   </div>
@@ -475,9 +476,10 @@ Rules:
 <section class="slide" id="s10">
   <div class="slide-inner">
     <span class="eyebrow">10 &middot; Live demo</span>
-    <h2 class="title">The alert feed, as the founder would see it</h2>
-    <p class="lede">Three simulated alerts. Click "Draft reply" to see Prompt B's output, then approve or discard it, the way a human review step actually works.</p>
-    <div class="alert-feed" id="alertFeed"></div>
+    <h2 class="title">This is not a simulation anymore</h2>
+    <p class="lede">The demo now runs on the actual deployed product: <a href="https://signal-desk-dashboard.vercel.app" target="_blank" rel="noopener" class="mono" style="font-size:0.95rem;">signal-desk-dashboard.vercel.app</a>. Type any problem area, watch it generate real search queries, fetch live items, and cluster them &mdash; in front of the class, live.</p>
+    <img src="screenshots/dashboard-explore-live.jpg" alt="Screenshot of the live 'Explore a problem area' feature returning real sub-problem clusters for AI meeting notetaker apps, including a real Hacker News thread about Otter.ai recording meetings without consent" style="width:100%; max-height:400px; object-fit:cover; object-position:top; border-radius:14px; border:1px solid var(--border); box-shadow:var(--shadow); margin-top:16px;">
+    <p style="font-size:0.8rem; color:var(--ink-muted); margin-top:10px;">Typed "AI meeting notetaker apps" and it independently surfaced a real Hacker News thread about Otter.ai recording meetings without consent &mdash; the same privacy risk flagged in slide 02's research, found again live.</p>
   </div>
 </section>
 
@@ -485,9 +487,10 @@ Rules:
   <div class="slide-inner">
     <span class="eyebrow">11 &middot; Next steps</span>
     <h2 class="title">What we would build next</h2>
+    <p class="lede" style="margin-top:0;">Wiring GitHub, Slack, and a real feed is done &mdash; it is live. Here is what is genuinely next.</p>
     <ul class="plain">
-      <li>Wire the GitHub Issues API and an F5Bot digest into an actual Slack channel instead of a mocked feed</li>
-      <li>Tighten Prompt B against panel feedback in class, specifically on the disclosure timing rule</li>
+      <li>Get real Reddit access (official API or a paid tripwire like Syften) instead of the public JSON endpoint that gets blocked in production</li>
+      <li>Persist approve/discard decisions server-side instead of only in the browser, so the review log survives a refresh</li>
       <li>Run 10 real drafted replies past a non-founder teammate as an astroturfing smell test before sending any</li>
       <li>Decide, after real discovery conversations, whether this cluster is a venture or just a good feature for someone else's product</li>
     </ul>
@@ -532,63 +535,6 @@ Rules:
     if (e.key === 'ArrowUp' || e.key === 'PageUp') { goTo(currentIndex() - 1); e.preventDefault(); }
   });
 
-  // ---- demo alert feed ----
-  var alerts = [
-    {
-      src: 'GitHub Issues · agent repo · severity 5/5',
-      text: '"Agent completely lost context after roughly 40 tool calls and started redoing work it had already finished. Wasted almost an hour of runtime before I noticed."',
-      draft: 'Hit this too, right around the same tool-call count. Feels more like a compaction problem than a model one. One thing that helped me was forcing a written checkpoint file every N steps instead of trusting the summary. If you’re open to it, I’d love 15 minutes to hear what your session looked like right before it broke. Not selling anything, just trying to map where this fails.\n\nDiv.'
-    },
-    {
-      src: 'r/ClaudeAI · keyword alert · severity 4/5',
-      text: '"Spent my whole morning re-explaining the same architecture decision three times in one session. At what point do I just write it all in a doc and paste it every time?"',
-      draft: 'Three times in one session is rough. Was that right after a compact, or just long natural drift? A few of us are mapping this exact pattern, agents forgetting decisions that were already settled. Would fifteen minutes of your actual experience be useful to trade for whatever we learn along the way? No pitch attached.\n\nDiv.'
-    },
-    {
-      src: 'dev.to comment · keyword alert · severity 3/5',
-      text: '"Built myself a scrappy checkpoint file that I paste back in every 20 minutes. Works, but it is one more thing to remember to do."',
-      draft: 'That checkpoint habit is basically the workaround we keep seeing, which is what got us paying attention to this. Curious how you decided on 20 minutes specifically, trial and error or did something actually break at that mark? If you’re up for a quick call I’d rather hear it straight from you than guess.\n\nDiv.'
-    }
-  ];
-
-  var feed = document.getElementById('alertFeed');
-  alerts.forEach(function (a, idx) {
-    var card = document.createElement('div');
-    card.className = 'alert-card';
-    card.innerHTML =
-      '<div class="alert-top">' +
-        '<span class="alert-src">' + a.src + '</span>' +
-        '<span class="status-badge pending" data-status>Awaiting draft</span>' +
-      '</div>' +
-      '<div class="alert-text">' + a.text + '</div>' +
-      '<div class="alert-actions">' +
-        '<button class="btn" data-draft type="button">Draft reply</button>' +
-      '</div>' +
-      '<div class="draft-panel" data-panel hidden>' +
-        '<span class="label" style="font-size:0.7rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-muted); font-weight:600;">Prompt B output</span>' +
-        '<div class="draft-msg" style="margin-top:8px; white-space:pre-line;">' + a.draft + '</div>' +
-        '<div class="alert-actions">' +
-          '<button class="btn primary" data-approve type="button">Approve to send</button>' +
-          '<button class="btn" data-discard type="button">Discard</button>' +
-        '</div>' +
-      '</div>';
-    feed.appendChild(card);
-
-    var status = card.querySelector('[data-status]');
-    var panel = card.querySelector('[data-panel]');
-    card.querySelector('[data-draft]').addEventListener('click', function (e) {
-      panel.hidden = !panel.hidden;
-      e.target.textContent = panel.hidden ? 'Draft reply' : 'Hide draft';
-    });
-    card.querySelector('[data-approve]').addEventListener('click', function () {
-      status.textContent = 'Approved by founder, ready to send';
-      status.className = 'status-badge approved';
-    });
-    card.querySelector('[data-discard]').addEventListener('click', function () {
-      status.textContent = 'Discarded';
-      status.className = 'status-badge discarded';
-    });
-  });
 })();
 </script>
 
