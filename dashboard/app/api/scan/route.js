@@ -2,7 +2,7 @@ import { buildQueries } from "@/lib/keywords";
 import { fetchAllSources } from "@/lib/sources";
 import { clusterAndScore, draftReply } from "@/lib/llm";
 import { saveResults, loadResults } from "@/lib/store";
-import { notifySlack } from "@/lib/notify";
+import { notifyAll } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -100,16 +100,13 @@ export async function GET(request) {
     );
   }
 
-  let notify = { sent: false };
-  try {
-    notify = await notifySlack({
-      clusters,
-      draftCount: drafts.length,
-      dashboardUrl: new URL(request.url).origin,
-    });
-  } catch (err) {
-    errors.push(`notifySlack: ${err.message}`);
-  }
+  const notify = await notifyAll({
+    clusters,
+    draftCount: drafts.length,
+    dashboardUrl: new URL(request.url).origin,
+  });
+  if (notify.slack.error) errors.push(`notifySlack: ${notify.slack.error}`);
+  if (notify.discord.error) errors.push(`notifyDiscord: ${notify.discord.error}`);
 
   return Response.json({
     ok: true,
@@ -117,7 +114,8 @@ export async function GET(request) {
     totalItemCount: items.length,
     clusterCount: clusters.length,
     draftCount: drafts.length,
-    slackNotified: notify.sent,
+    slackNotified: notify.slack.sent,
+    discordNotified: notify.discord.sent,
     errors,
   });
 }

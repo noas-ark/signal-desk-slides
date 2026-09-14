@@ -30,6 +30,7 @@ Evaluated but intentionally not wired live: **X/Twitter** (no free API access), 
 | `GITHUB_TOKEN` | No | Optional personal access token to raise GitHub Search API rate limits. |
 | `CRON_SECRET` | No | If set, `/api/scan` requires it (as `Authorization: Bearer <secret>` or `?secret=`) — matches Vercel's recommended cron-security pattern. Leave unset for an open demo endpoint. |
 | `SLACK_WEBHOOK_URL` | No | Slide 04's "Notify team" step — if set, each scan posts a ranked digest to this [Slack incoming webhook](https://api.slack.com/messaging/webhooks). Omit to skip notification (scan still works). |
+| `DISCORD_WEBHOOK_URL` | No | Same "Notify team" step, for Discord instead — a channel's Integrations → Webhooks → New Webhook URL. Independent of Slack; set either, both, or neither. |
 
 Set secrets yourself — never paste them to an assistant:
 
