@@ -333,16 +333,18 @@
     <h2 class="title">Scan, cluster, alert, draft, then a human decides</h2>
     <p class="lede">Everything up to the send button is automatable. The send button is not.</p>
     <div class="pipeline">
-      <div class="pipe-step"><span class="n">01</span><h3>Scan sources</h3><p>GitHub Issues API, F5Bot keyword alerts, dev.to / Substack RSS</p></div>
+      <div class="pipe-step"><span class="n">01</span><h3>Scan sources</h3><p>GitHub, HN, Reddit, Stack Overflow, dev.to, Substack, Discourse &mdash; all live APIs</p></div>
       <div class="pipe-arrow">&#8594;</div>
       <div class="pipe-step"><span class="n">02</span><h3>Cluster & score</h3><p>Claude groups raw items into problem clusters, scores frequency and severity</p></div>
       <div class="pipe-arrow">&#8594;</div>
-      <div class="pipe-step"><span class="n">03</span><h3>Notify team</h3><p>Ranked digest posted to Slack, tagged by cluster and score</p></div>
+      <div class="pipe-step"><span class="n">03</span><h3>Notify team</h3><p>Ranked digest posted to Slack and Discord, tagged by cluster and score</p></div>
       <div class="pipe-arrow">&#8594;</div>
       <div class="pipe-step"><span class="n">04</span><h3>Draft reply</h3><p>Claude writes one candidate response grounded in the exact complaint text</p></div>
       <div class="pipe-arrow">&#8594;</div>
       <div class="pipe-step gate"><span class="n">GATE</span><h3>Human review</h3><p>Founder edits or kills the draft. Nothing posts without a person approving it</p></div>
     </div>
+    <img src="screenshots/discord-digest.jpg" alt="Screenshot of a real Signal Desk scan digest posted to Discord, showing ranked clusters with frequency, severity, and description for each" style="width:100%; max-height:230px; object-fit:cover; object-position:top; border-radius:14px; border:1px solid var(--border); box-shadow:var(--shadow); margin-top:20px;">
+    <p style="font-size:0.8rem; color:var(--ink-muted); margin-top:8px;">Step 03, actually happening: this scan's real digest, posted to Discord seconds after the scan finished.</p>
   </div>
 </section>
 
