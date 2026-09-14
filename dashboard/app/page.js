@@ -18,12 +18,72 @@ function timeAgo(iso) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
+function ClusterTable({ clusters, emptyLabel }) {
+  if (clusters.length === 0) {
+    return <div className="empty-state">{emptyLabel}</div>;
+  }
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Cluster</th>
+            <th>Frequency</th>
+            <th>Severity</th>
+            <th>Concentrated in</th>
+            <th>Workaround seen?</th>
+          </tr>
+        </thead>
+        <tbody>
+          {clusters.map((c, i) => (
+            <tr key={i}>
+              <td>
+                <strong>{c.cluster}</strong>
+                <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+                  {(c.items || []).slice(0, 3).map((it, j) => (
+                    <a
+                      key={j}
+                      href={it.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}
+                    >
+                      {it.source}: {it.title}
+                    </a>
+                  ))}
+                </div>
+              </td>
+              <td>
+                <span className={`pill ${severityPill(c.frequency * 2)}`}>
+                  {c.frequency}/5
+                </span>
+              </td>
+              <td>
+                <span className={`pill ${severityPill(c.severity * 2)}`}>
+                  {c.severity}/5
+                </span>
+              </td>
+              <td>{c.concentratedIn}</td>
+              <td>{c.hasWorkaround ? "Yes" : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Home() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState(null);
   const [draftState, setDraftState] = useState({});
+
+  const [problemArea, setProblemArea] = useState("");
+  const [exploring, setExploring] = useState(false);
+  const [exploreResult, setExploreResult] = useState(null);
+  const [exploreError, setExploreError] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,6 +117,28 @@ export default function Home() {
       setScanMessage(`Scan failed: ${err.message}`);
     } finally {
       setScanning(false);
+    }
+  }
+
+  async function runExplore(e) {
+    e.preventDefault();
+    if (!problemArea.trim()) return;
+    setExploring(true);
+    setExploreError(null);
+    setExploreResult(null);
+    try {
+      const res = await fetch("/api/explore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ problemArea: problemArea.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "explore failed");
+      setExploreResult(json);
+    } catch (err) {
+      setExploreError(err.message);
+    } finally {
+      setExploring(false);
     }
   }
 
@@ -98,65 +180,69 @@ export default function Home() {
       </div>
 
       <section className="block">
-        <h2>Problem-opportunity matrix</h2>
+        <h2>Explore a problem area</h2>
         <p className="lede">
-          Live clusters from the most recent scan, ranked by frequency +
-          severity.
+          Type any problem area and Claude will generate real search
+          queries, fetch live items for them, and cluster the results into
+          sub-problem opportunities — on demand, separate from the
+          scheduled scan above.
         </p>
-        {clusters.length === 0 ? (
-          <div className="empty-state">
-            No clusters yet. Click &ldquo;Run scan now&rdquo; to fetch and
-            cluster real items.
-          </div>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Cluster</th>
-                  <th>Frequency</th>
-                  <th>Severity</th>
-                  <th>Concentrated in</th>
-                  <th>Workaround seen?</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clusters.map((c, i) => (
-                  <tr key={i}>
-                    <td>
-                      <strong>{c.cluster}</strong>
-                      <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
-                        {(c.items || []).slice(0, 3).map((it, j) => (
-                          <a
-                            key={j}
-                            href={it.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ fontSize: "0.78rem", color: "var(--ink-muted)" }}
-                          >
-                            {it.source}: {it.title}
-                          </a>
-                        ))}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`pill ${severityPill(c.frequency * 2)}`}>
-                        {c.frequency}/5
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`pill ${severityPill(c.severity * 2)}`}>
-                        {c.severity}/5
-                      </span>
-                    </td>
-                    <td>{c.concentratedIn}</td>
-                    <td>{c.hasWorkaround ? "Yes" : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <form onSubmit={runExplore} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <input
+            type="text"
+            value={problemArea}
+            onChange={(e) => setProblemArea(e.target.value)}
+            placeholder="e.g. AI customer support agents, browser automation tools…"
+            style={{
+              flex: "1 1 320px",
+              padding: "9px 14px",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              fontFamily: "inherit",
+              fontSize: "0.9rem",
+              background: "var(--surface)",
+              color: "var(--ink)",
+            }}
+          />
+          <button className="btn primary" type="submit" disabled={exploring}>
+            {exploring ? "Exploring…" : "Find sub-problems"}
+          </button>
+        </form>
+
+        {exploreError && <div className="error-box">{exploreError}</div>}
+
+        {exploreResult && (
+          <div style={{ marginTop: 20 }}>
+            <p style={{ fontSize: "0.85rem", color: "var(--ink-muted)" }}>
+              Searched {exploreResult.queries.length} generated queries
+              (
+              <span className="mono" style={{ fontSize: "0.78rem" }}>
+                {exploreResult.queries.join(" · ")}
+              </span>
+              ), found {exploreResult.itemCount} items, clustered into{" "}
+              {exploreResult.clusters.length} sub-problem area
+              {exploreResult.clusters.length === 1 ? "" : "s"}.
+            </p>
+            <ClusterTable
+              clusters={exploreResult.clusters}
+              emptyLabel={
+                exploreResult.note || "No sub-problems found for this area."
+              }
+            />
           </div>
         )}
+      </section>
+
+      <section className="block">
+        <h2>Problem-opportunity matrix</h2>
+        <p className="lede">
+          Live clusters from the most recent scheduled scan, ranked by
+          frequency + severity.
+        </p>
+        <ClusterTable
+          clusters={clusters}
+          emptyLabel='No clusters yet. Click "Run scan now" to fetch and cluster real items.'
+        />
       </section>
 
       <section className="block">

@@ -115,6 +115,26 @@ Respond with ONLY a JSON array, no prose, no markdown fences, matching this shap
   }));
 }
 
+// Turns a free-text problem area ("customer support for AI agents") into
+// concrete search queries the real fetchers can run against GitHub, HN,
+// Reddit, Stack Overflow, and Discourse — the same "pick terms, not vague
+// categories" discipline from slide 01, applied on demand.
+export async function expandProblemArea(problemArea) {
+  const prompt = `A founder wants to find real, acute customer complaints related to this problem area: "${problemArea}"
+
+Generate 8 concrete search queries that would surface actual complaints (not marketing copy) on GitHub Issues, Hacker News, Reddit, Stack Overflow, or developer forums. Each query should combine a specific product/tool/platform name (real ones, if you know likely candidates in this space) with a specific symptom or failure word (e.g. "crashes", "won't sync", "loses data", "rate limited", "silently fails"). Avoid generic single-word queries.
+
+Respond with ONLY a JSON array of 8 strings, no prose, no markdown fences:
+["query 1", "query 2", ...]`;
+
+  const content = await callOpenRouter([{ role: "user", content: prompt }], {
+    maxTokens: 500,
+  });
+  const queries = extractJson(content);
+  if (!Array.isArray(queries)) throw new Error("expandProblemArea: expected a JSON array");
+  return queries.filter((q) => typeof q === "string" && q.trim()).slice(0, 8);
+}
+
 // Prompt B: draft a reply for one item, astroturf guardrails built in.
 // Mirrors slide 06's "Prompt B" verbatim.
 export async function draftReply(item, { founderName = "the founder" } = {}) {

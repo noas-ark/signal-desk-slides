@@ -249,6 +249,20 @@ export async function fetchDiscourse(queries) {
   });
 }
 
+// For the "explore a problem area" feature: runs only the sources that are
+// genuinely query-driven (skips dev.to's fixed tags and Substack's fixed
+// feed list, which aren't meaningful for an arbitrary problem area).
+export async function fetchQueryDrivenSources(queries) {
+  const [github, hn, reddit, stackoverflow, discourse] = await Promise.all([
+    fetchGithubIssues(queries),
+    fetchHackerNews(queries),
+    fetchReddit(queries),
+    fetchStackExchange(queries),
+    fetchDiscourse(queries),
+  ]);
+  return [...github, ...hn, ...reddit, ...stackoverflow, ...discourse];
+}
+
 export async function fetchAllSources(queries) {
   const complaintFilter = /cursor|claude|copilot|windsurf|agent|context|hallucinat/i;
   const [github, hn, reddit, stackoverflow, devto, substack, discourse] =
