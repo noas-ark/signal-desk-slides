@@ -3,21 +3,25 @@
 // its webhook env var isn't set, so scans still work before you wire these
 // up, and you can enable either or both independently.
 
-function buildDigestLines({ clusters, draftCount }) {
+const MAX_DESCRIPTION_CHARS = 240;
+
+function buildDigestEntries({ clusters, draftCount }) {
   const top = [...clusters]
     .sort((a, b) => b.frequency + b.severity - (a.frequency + a.severity))
     .slice(0, 5);
 
-  const lines = top.map(
-    (c, i) =>
-      `${i + 1}. ${c.cluster} — freq ${c.frequency}/5, severity ${c.severity}/5${
-        c.concentratedIn ? ` (${c.concentratedIn})` : ""
-      }`
-  );
+  const entries = top.map((c, i) => ({
+    rank: i + 1,
+    name: c.cluster,
+    meta: `freq ${c.frequency}/5, severity ${c.severity}/5${
+      c.concentratedIn ? ` · ${c.concentratedIn}` : ""
+    }${c.hasWorkaround ? " · workaround seen" : ""}`,
+    description: (c.description || "").slice(0, MAX_DESCRIPTION_CHARS),
+  }));
 
   return {
     summary: `Signal Desk scan complete — ${clusters.length} clusters, ${draftCount} drafted replies awaiting review.`,
-    lines,
+    entries,
   };
 }
 
@@ -28,12 +32,15 @@ export async function notifySlack({ clusters, draftCount, dashboardUrl }) {
     return { sent: false, reason: "no clusters to report" };
   }
 
-  const { summary, lines } = buildDigestLines({ clusters, draftCount });
+  const { summary, entries } = buildDigestEntries({ clusters, draftCount });
   const text = [
     `*${summary}*`,
     "",
-    ...lines.map((l) => `*${l.split(" — ")[0]}* — ${l.split(" — ").slice(1).join(" — ")}`),
-    "",
+    ...entries.flatMap((e) => [
+      `*${e.rank}. ${e.name}* — ${e.meta}`,
+      e.description ? `_${e.description}_` : null,
+      "",
+    ]).filter(Boolean),
     `<${dashboardUrl}|Review the full matrix and drafts →>`,
   ].join("\n");
 
@@ -57,17 +64,22 @@ export async function notifyDiscord({ clusters, draftCount, dashboardUrl }) {
     return { sent: false, reason: "no clusters to report" };
   }
 
-  const { summary, lines } = buildDigestLines({ clusters, draftCount });
-  const content = [
+  const { summary, entries } = buildDigestEntries({ clusters, draftCount });
+  let content = [
     `**${summary}**`,
     "",
-    ...lines.map((l) => {
-      const [name, rest] = l.split(" — ");
-      return `**${name}** — ${rest}`;
-    }),
-    "",
+    ...entries.flatMap((e) => [
+      `**${e.rank}. ${e.name}** — ${e.meta}`,
+      e.description || null,
+      "",
+    ]).filter(Boolean),
     `Review the full matrix and drafts → ${dashboardUrl}`,
   ].join("\n");
+
+  // Discord caps message content at 2000 chars.
+  if (content.length > 1950) {
+    content = content.slice(0, 1950) + "…";
+  }
 
   const res = await fetch(webhookUrl, {
     method: "POST",

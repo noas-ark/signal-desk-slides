@@ -39,6 +39,11 @@ function ClusterTable({ clusters, emptyLabel }) {
             <tr key={i}>
               <td>
                 <strong>{c.cluster}</strong>
+                {c.description && (
+                  <p style={{ marginTop: 6, fontSize: "0.84rem", color: "var(--ink-muted)" }}>
+                    {c.description}
+                  </p>
+                )}
                 <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
                   {(c.items || []).slice(0, 3).map((it, j) => (
                     <a

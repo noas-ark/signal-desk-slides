@@ -76,11 +76,16 @@ For each raw item I give you (from GitHub issues, forums, or reviews):
 
 1. Assign it to a problem cluster. Name the cluster as a specific
    failure in a job-to-be-done, not a vague category.
-2. Score FREQUENCY 1-5, how often this same complaint recurs.
-3. Score SEVERITY 1-5, how much workflow, financial, or trust
+2. Write a robust 2-3 sentence DESCRIPTION of the problem: what
+   actually breaks, the likely root cause if inferable from the
+   complaints, and who is affected (which users, in which workflow).
+   Be concrete — cite the specific mechanism, not a restatement of
+   the cluster name.
+3. Score FREQUENCY 1-5, how often this same complaint recurs.
+4. Score SEVERITY 1-5, how much workflow, financial, or trust
    damage the complaint describes.
-4. Note WHERE CONCENTRATED, platform, subreddit, or repo.
-5. Flag it if the poster describes a workaround they built
+5. Note WHERE CONCENTRATED, platform, subreddit, or repo.
+6. Flag it if the poster describes a workaround they built
    themselves. That is a stronger signal than the complaint alone.
 
 Return one row per cluster, aggregating duplicates. List at most 8
@@ -94,6 +99,7 @@ Respond with ONLY a JSON array, no prose, no markdown fences, matching this shap
 [
   {
     "cluster": "string, specific failure in a job-to-be-done",
+    "description": "2-3 sentence robust description: mechanism, root cause, who's affected",
     "frequency": 1-5,
     "severity": 1-5,
     "concentratedIn": "string",
@@ -103,7 +109,7 @@ Respond with ONLY a JSON array, no prose, no markdown fences, matching this shap
 ]`;
 
   const content = await callOpenRouter([{ role: "user", content: prompt }], {
-    maxTokens: 4000,
+    maxTokens: 6000,
   });
   const clusters = extractJson(content);
   return clusters.map((c) => ({
