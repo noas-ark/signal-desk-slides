@@ -71,9 +71,8 @@ export default function Home() {
         <h1>The real pipeline, running</h1>
         <p>
           This page is fed by a scheduled job that scans GitHub Issues,
-          Hacker News, Reddit, Stack Overflow, and dev.to for the same
-          complaint lexicon from the deck, clusters them with Claude, and
-          drafts (never sends) outreach for the top items.
+          Hacker News, Reddit, Stack Overflow, and dev.to, clusters them
+          with Claude, and drafts (never sends) outreach for the top items.
         </p>
         <div className="status-row">
           <span>
