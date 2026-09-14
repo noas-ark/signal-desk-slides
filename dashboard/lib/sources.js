@@ -19,7 +19,23 @@ async function mapSettled(list, fn) {
   return results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 }
 
-export async function fetchGithubIssues(queries) {
+// GitHub's global issue search surfaces a lot of noise for broad keyword
+// queries — unrelated repos whose own internal code happens to use words
+// like "agent" or "context". Scoping to real, well-known open-source AI
+// coding tool repos (closed-source tools like Cursor/Copilot don't have
+// public issue trackers) guarantees every hit is genuinely about one of
+// these products, not a coincidental keyword match.
+const GITHUB_REPO_ALLOWLIST = [
+  "anthropics/claude-code",
+  "cline/cline",
+  "continuedev/continue",
+  "All-Hands-AI/OpenHands",
+  "block/goose",
+  "Aider-AI/aider",
+];
+const GITHUB_SYMPTOMS = ["loses context", "hallucinate", "keeps forgetting"];
+
+export async function fetchGithubIssues() {
   const headers = {
     Accept: "application/vnd.github+json",
     "User-Agent": "signal-desk-scanner",
@@ -28,15 +44,19 @@ export async function fetchGithubIssues(queries) {
     headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   }
 
-  return mapSettled(queries, async (q) => {
+  const pairs = GITHUB_REPO_ALLOWLIST.flatMap((repo) =>
+    GITHUB_SYMPTOMS.map((symptom) => ({ repo, symptom }))
+  );
+
+  return mapSettled(pairs, async ({ repo, symptom }) => {
     const url = `https://api.github.com/search/issues?q=${encodeURIComponent(
-      q
+      `"${symptom}" repo:${repo}`
     )}+is:issue&sort=created&order=desc&per_page=${PER_QUERY_LIMIT}`;
     try {
       const data = await safeJson(await fetch(url, { headers }));
       return (data.items ?? []).map((issue) => ({
         id: `github-${issue.id}`,
-        source: "GitHub Issues",
+        source: `GitHub Issues · ${repo}`,
         title: issue.title,
         text: (issue.body || "").slice(0, 1200),
         url: issue.html_url,
@@ -44,7 +64,7 @@ export async function fetchGithubIssues(queries) {
         score: issue.comments ?? 0,
       }));
     } catch (err) {
-      console.error(`GitHub fetch failed for "${q}":`, err.message);
+      console.error(`GitHub fetch failed for "${symptom}" in ${repo}:`, err.message);
       return [];
     }
   });
@@ -254,7 +274,7 @@ export async function fetchDiscourse(queries) {
 // feed list, which aren't meaningful for an arbitrary problem area).
 export async function fetchQueryDrivenSources(queries) {
   const [github, hn, reddit, stackoverflow, discourse] = await Promise.all([
-    fetchGithubIssues(queries),
+    fetchGithubIssues(),
     fetchHackerNews(queries),
     fetchReddit(queries),
     fetchStackExchange(queries),
@@ -267,7 +287,7 @@ export async function fetchAllSources(queries) {
   const complaintFilter = /cursor|claude|copilot|windsurf|agent|context|hallucinat/i;
   const [github, hn, reddit, stackoverflow, devto, substack, discourse] =
     await Promise.all([
-      fetchGithubIssues(queries),
+      fetchGithubIssues(),
       fetchHackerNews(queries),
       fetchReddit(queries),
       fetchStackExchange(queries),

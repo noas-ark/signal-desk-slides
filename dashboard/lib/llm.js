@@ -71,8 +71,34 @@ export async function clusterAndScore(items) {
     )
     .join("\n\n");
 
-  const prompt = `You are a research analyst screening startup problem signal.
-For each raw item I give you (from GitHub issues, forums, or reviews):
+  const prompt = `You are a research analyst screening startup problem signal:
+real friction that people experience USING a widely-known, named AI product
+(examples: Cursor, Claude Code, GitHub Copilot, Windsurf, Codeium, Aider,
+ChatGPT, Claude.ai, Gemini, Otter.ai, Fireflies.ai, Replit Agent, Devin) —
+the kind of pain a founder could build a product or feature around.
+
+HARD REQUIREMENT: every item you keep must, in its own title or text,
+explicitly name one of these widely-known AI products (or another AI
+product/tool a general audience would recognize) as the subject of the
+complaint. If the item does not explicitly name such a product, exclude it
+— no exceptions, even if it mentions "agent," "context," "hook," or "AI" in
+passing.
+
+This means you must exclude:
+- Issues from a repository that is itself someone's personal project,
+  internal tool, or framework (identifiable by internal class/module/file
+  names like "SDKFileDataStore," "LCM," "dispatch deck," or similar jargon
+  specific to one unfamiliar codebase) where no widely-known AI product is
+  named as what broke.
+- Anything where you are inferring "this is probably about an AI tool"
+  rather than reading an explicit product name in the text.
+- General software bugs unrelated to AI tooling that happened to match a
+  search term.
+When in doubt, exclude the item. A smaller, cleaner set of real product
+complaints is much more valuable than a larger set padded with noise.
+
+For each item that DOES pass that bar (from GitHub issues, forums, or
+reviews):
 
 1. Assign it to a problem cluster. Name the cluster as a specific
    failure in a job-to-be-done, not a vague category.
@@ -87,6 +113,11 @@ For each raw item I give you (from GitHub issues, forums, or reviews):
 5. Note WHERE CONCENTRATED, platform, subreddit, or repo.
 6. Flag it if the poster describes a workaround they built
    themselves. That is a stronger signal than the complaint alone.
+
+A cluster requires at least 3 distinct items making the same complaint
+about a real AI product. If an item is a one-off with no other item
+making a similar complaint, do not give it its own cluster — leave it
+out entirely rather than reporting a single occurrence as a trend.
 
 Return one row per cluster, aggregating duplicates. List at most 8
 itemIndexes per cluster (the most representative ones) even if more belong
@@ -104,7 +135,7 @@ Respond with ONLY a JSON array, no prose, no markdown fences, matching this shap
     "severity": 1-5,
     "concentratedIn": "string",
     "hasWorkaround": true/false,
-    "itemIndexes": [indexes from the list above that belong to this cluster]
+    "itemIndexes": [indexes from the list above that belong to this cluster, at least 3]
   }
 ]`;
 
@@ -112,13 +143,16 @@ Respond with ONLY a JSON array, no prose, no markdown fences, matching this shap
     maxTokens: 6000,
   });
   const clusters = extractJson(content);
-  return clusters.map((c) => ({
-    ...c,
-    items: (c.itemIndexes || [])
-      .map((i) => items[i])
-      .filter(Boolean)
-      .map((it) => ({ source: it.source, title: it.title, url: it.url })),
-  }));
+  const MIN_ITEMS_PER_CLUSTER = 3;
+  return clusters
+    .filter((c) => (c.itemIndexes || []).length >= MIN_ITEMS_PER_CLUSTER)
+    .map((c) => ({
+      ...c,
+      items: (c.itemIndexes || [])
+        .map((i) => items[i])
+        .filter(Boolean)
+        .map((it) => ({ source: it.source, title: it.title, url: it.url })),
+    }));
 }
 
 // Turns a free-text problem area ("customer support for AI agents") into

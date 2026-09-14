@@ -83,6 +83,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [scanMessage, setScanMessage] = useState(null);
+  const [scanOk, setScanOk] = useState(true);
+  const [notifying, setNotifying] = useState(false);
   const [draftState, setDraftState] = useState({});
 
   const [problemArea, setProblemArea] = useState("");
@@ -114,14 +116,33 @@ export default function Home() {
       const res = await fetch("/api/scan");
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "scan failed");
+      setScanOk(true);
       setScanMessage(
-        `Scan complete: ${json.newItemCount} fetched, ${json.clusterCount} clusters, ${json.draftCount} drafts.`
+        `Scan complete: ${json.newItemCount} fetched, ${json.clusterCount} clusters, ${json.draftCount} drafts. This replaces the matrix and drafts below with this run's results.`
       );
       await load();
     } catch (err) {
+      setScanOk(false);
       setScanMessage(`Scan failed: ${err.message}`);
     } finally {
       setScanning(false);
+    }
+  }
+
+  async function sendToDiscord() {
+    setNotifying(true);
+    setScanMessage(null);
+    try {
+      const res = await fetch("/api/notify-discord", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "send failed");
+      setScanOk(true);
+      setScanMessage("Sent the current matrix and drafts to Discord.");
+    } catch (err) {
+      setScanOk(false);
+      setScanMessage(`Discord send failed: ${err.message}`);
+    } finally {
+      setNotifying(false);
     }
   }
 
@@ -174,8 +195,17 @@ export default function Home() {
           <button className="btn" onClick={load} disabled={loading}>
             Refresh
           </button>
+          <button
+            className="btn"
+            onClick={sendToDiscord}
+            disabled={notifying || clusters.length === 0}
+          >
+            {notifying ? "Sending…" : "Send to Discord"}
+          </button>
         </div>
-        {scanMessage && <div className="error-box">{scanMessage}</div>}
+        {scanMessage && (
+          <div className={scanOk ? "success-box" : "error-box"}>{scanMessage}</div>
+        )}
         {errors.length > 0 && (
           <div className="error-box">
             {errors.length} source/model error(s) on last run — check server
