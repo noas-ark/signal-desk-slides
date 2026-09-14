@@ -2,11 +2,13 @@ import { buildQueries } from "@/lib/keywords";
 import { fetchAllSources } from "@/lib/sources";
 import { clusterAndScore, draftReply } from "@/lib/llm";
 import { saveResults, loadResults } from "@/lib/store";
+import { notifySlack } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const MAX_ITEMS_RETAINED = 150;
+const MAX_ITEMS_FOR_CLUSTERING = 60; // keeps the Claude call fast + bounded
 const MAX_DRAFTS_PER_RUN = 5;
 
 function isAuthorized(request) {
@@ -28,7 +30,7 @@ export async function GET(request) {
 
   let newItems = [];
   try {
-    const queries = buildQueries({ maxQueries: 12 });
+    const queries = buildQueries({ maxQueries: 8 });
     newItems = await fetchAllSources(queries);
   } catch (err) {
     errors.push(`fetchAllSources: ${err.message}`);
@@ -44,7 +46,10 @@ export async function GET(request) {
 
   let clusters = previous.clusters || [];
   try {
-    clusters = await clusterAndScore(items);
+    const forClustering = [...items]
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, MAX_ITEMS_FOR_CLUSTERING);
+    clusters = await clusterAndScore(forClustering);
     clusters.sort(
       (a, b) => b.frequency + b.severity - (a.frequency + a.severity)
     );
@@ -56,22 +61,25 @@ export async function GET(request) {
     .sort((a, b) => (b.score || 0) - (a.score || 0))
     .slice(0, MAX_DRAFTS_PER_RUN);
 
+  const draftResults = await Promise.allSettled(
+    draftCandidates.map((item) => draftReply(item, { founderName: "Div" }))
+  );
   const drafts = [];
-  for (const item of draftCandidates) {
-    try {
-      const text = await draftReply(item, { founderName: "Div" });
+  draftResults.forEach((result, i) => {
+    const item = draftCandidates[i];
+    if (result.status === "fulfilled") {
       drafts.push({
         itemId: item.id,
         source: item.source,
         title: item.title,
         url: item.url,
-        draft: text,
+        draft: result.value,
         status: "pending",
       });
-    } catch (err) {
-      errors.push(`draftReply(${item.id}): ${err.message}`);
+    } else {
+      errors.push(`draftReply(${item.id}): ${result.reason.message}`);
     }
-  }
+  });
 
   const results = {
     updatedAt: new Date().toISOString(),
@@ -92,12 +100,24 @@ export async function GET(request) {
     );
   }
 
+  let notify = { sent: false };
+  try {
+    notify = await notifySlack({
+      clusters,
+      draftCount: drafts.length,
+      dashboardUrl: new URL(request.url).origin,
+    });
+  } catch (err) {
+    errors.push(`notifySlack: ${err.message}`);
+  }
+
   return Response.json({
     ok: true,
     newItemCount: newItems.length,
     totalItemCount: items.length,
     clusterCount: clusters.length,
     draftCount: drafts.length,
+    slackNotified: notify.sent,
     errors,
   });
 }

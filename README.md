@@ -14,7 +14,7 @@ Prepared for *AI Tools for Venture Workflows*, Session 1.
 
 ## 🔴 Live dashboard (the real workflow, running)
 
-**[signal-desk-dashboard.vercel.app](https://signal-desk-dashboard.vercel.app)** — this is the actual pipeline, not a mockup. A scheduled job scans free public APIs (GitHub Issues, Hacker News, Reddit, Stack Overflow, dev.to) for the same complaint lexicon from the deck, clusters/scores the results with Claude, and drafts (never sends) outreach for the top items. See [`dashboard/README.md`](./dashboard/README.md) for architecture and setup.
+**[signal-desk-dashboard.vercel.app](https://signal-desk-dashboard.vercel.app)** — this is the actual pipeline, not a mockup. A scheduled job scans free public APIs (GitHub Issues, Hacker News, Reddit, Stack Overflow, dev.to, Substack, Discourse forums) for recurring complaints, clusters/scores the results with Claude, posts a ranked digest to Slack, and drafts (never sends) outreach for the top items. See [`dashboard/README.md`](./dashboard/README.md) for architecture and setup.
 
 ## Keeping the PDF in sync
 

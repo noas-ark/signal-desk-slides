@@ -9,10 +9,14 @@ The real, running version of the [Signal Desk](../README.md) workflow: it scans 
 - Reddit public search JSON (best-effort — Reddit blocks a lot of unauthenticated traffic; failures here are expected and match the deck's "what didn't work" findings)
 - Stack Exchange API (Stack Overflow)
 - dev.to API
+- Substack — no cross-publication search API exists, so this pulls a curated list of AI-tooling newsletter RSS feeds (every Substack exposes one at `/feed`)
+- Discourse forums — many dev-tool communities (e.g. `forum.cursor.com`, `community.openai.com`) run on Discourse, which exposes a free public `/search.json?q=` endpoint with no auth needed
+
+Evaluated but intentionally not wired live: **X/Twitter** (no free API access), **G2/Trustpilot/Capterra** (no free API, ToS-restricted scraping), **IndieHackers** (no API), **Discord** (would require joining communities as a bot with permission, not a scraper) — same findings as slide 09's "what didn't work."
 
 ## Architecture
 
-- `GET /api/scan` — fetches from all sources, clusters/scores with Claude (Prompt A from slide 06), drafts replies for the top items (Prompt B), and persists the result to Vercel Blob. Triggered by Vercel Cron (see `vercel.json`) or manually from the dashboard's "Run scan now" button.
+- `GET /api/scan` — fetches from all sources, clusters/scores with Claude (Prompt A from slide 06), drafts replies for the top items (Prompt B), posts a ranked digest to Slack (slide 04 step 03, optional), and persists the result to Vercel Blob. Triggered by Vercel Cron (see `vercel.json`) or manually from the dashboard's "Run scan now" button.
 - `GET /api/results` — reads the latest persisted scan result.
 - `/` — the dashboard UI: live problem-opportunity matrix + alert feed with drafted replies.
 
@@ -21,10 +25,11 @@ The real, running version of the [Signal Desk](../README.md) workflow: it scans 
 | Variable | Required | Purpose |
 |---|---|---|
 | `OPENROUTER_API_KEY` | Yes | Calls Claude via OpenRouter for clustering/drafting. Without it, scanning still fetches real items but clustering/drafting steps fail gracefully (visible in the `errors` array). |
-| `OPENROUTER_MODEL` | No | Defaults to `anthropic/claude-3.5-sonnet`. |
+| `OPENROUTER_MODEL` | No | Defaults to `anthropic/claude-sonnet-4.5`. OpenRouter model slugs change over time — check `https://openrouter.ai/api/v1/models` if you see a 404. |
 | `BLOB_READ_WRITE_TOKEN` | Yes (auto-set) | Provisioned automatically when the Vercel Blob store is linked to this project. |
 | `GITHUB_TOKEN` | No | Optional personal access token to raise GitHub Search API rate limits. |
 | `CRON_SECRET` | No | If set, `/api/scan` requires it (as `Authorization: Bearer <secret>` or `?secret=`) — matches Vercel's recommended cron-security pattern. Leave unset for an open demo endpoint. |
+| `SLACK_WEBHOOK_URL` | No | Slide 04's "Notify team" step — if set, each scan posts a ranked digest to this [Slack incoming webhook](https://api.slack.com/messaging/webhooks). Omit to skip notification (scan still works). |
 
 Set secrets yourself — never paste them to an assistant:
 

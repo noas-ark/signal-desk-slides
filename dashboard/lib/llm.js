@@ -3,7 +3,7 @@
 // the live pipeline matches what was presented.
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = process.env.OPENROUTER_MODEL || "anthropic/claude-3.5-sonnet";
+const MODEL = process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4.5";
 
 async function callOpenRouter(messages, { maxTokens = 2000 } = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -38,7 +38,24 @@ function extractJson(text) {
   const raw = fenced ? fenced[1] : text;
   const start = raw.search(/[[{]/);
   if (start === -1) throw new Error(`No JSON found in model output: ${text.slice(0, 200)}`);
-  return JSON.parse(raw.slice(start));
+  const body = raw.slice(start);
+  try {
+    return JSON.parse(body);
+  } catch (err) {
+    // Output was likely truncated by the token limit. If it's a JSON array,
+    // salvage complete elements up to the last well-formed "},".
+    if (body.trimStart().startsWith("[")) {
+      const lastComplete = body.lastIndexOf("},");
+      if (lastComplete > 0) {
+        try {
+          return JSON.parse(body.slice(0, lastComplete + 1) + "]");
+        } catch {
+          // fall through to original error
+        }
+      }
+    }
+    throw err;
+  }
 }
 
 // Prompt A: cluster and score raw items into a ranked problem-opportunity
@@ -66,7 +83,9 @@ For each raw item I give you (from GitHub issues, forums, or reviews):
 5. Flag it if the poster describes a workaround they built
    themselves. That is a stronger signal than the complaint alone.
 
-Return one row per cluster, aggregating duplicates.
+Return one row per cluster, aggregating duplicates. List at most 8
+itemIndexes per cluster (the most representative ones) even if more belong
+to it — this keeps the response a bounded size.
 
 Raw items (indexed):
 ${raw}
@@ -84,7 +103,7 @@ Respond with ONLY a JSON array, no prose, no markdown fences, matching this shap
 ]`;
 
   const content = await callOpenRouter([{ role: "user", content: prompt }], {
-    maxTokens: 2000,
+    maxTokens: 4000,
   });
   const clusters = extractJson(content);
   return clusters.map((c) => ({
